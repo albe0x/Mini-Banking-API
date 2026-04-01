@@ -9,7 +9,7 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 class ConversionController
 {
   public function crypto(Request $request, Response $response, $args){
-    $mysqli_connection = new MySQLi('my_mariadb', 'root', 'ciccio', 'scuola');
+    $mysqli_connection = new MySQLi('my_mariadb', 'root', 'ciccio', 'banking');
         
         $app->get('/accounts/{id}/balance/convert/fiat', function (Request $request, Response $response, array $args) use ($mysqli) {
         $accountId = (int)$args['id'];
@@ -17,7 +17,9 @@ class ConversionController
         $to = strtoupper($params['to'] ?? '');
 
         //Divisione errori in base al numero
+
         //400
+
         //Missing target currency
         if (!$to) {
             $response->getBody()->write(json_encode([
@@ -38,7 +40,7 @@ class ConversionController
                 ->withStatus(400);
         }
 
-        // Not valid import
+        //Not valid import
         if (!is_numeric($amount) || (float)$amount <= 0) {
             $response->getBody()->write(json_encode([
                 'error' => 'Importo non valido'
