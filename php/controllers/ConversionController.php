@@ -17,19 +17,6 @@ class ConversionController
     return $response->withHeader("Content-type", "application/json")->withStatus(200);
   }
 
-public function getTransaction(Request $request, Response $response, $args){}
-
-public function getTransactionNumber(Request $request, Response $response, $args){}
-
-public function makeDepositit(Request $request, Response $response, $args){}
-
-public function makeWithdrawal(Request $request, Response $response, $args){}
-
-public function editTransactionNumber(Request $request, Response $response, $args){}
-
-public function deleteTransactionNumber(Request $request, Response $response, $args){}
-
-public function getBalance(Request $request, Response $response, $args){}
 
 
 }
