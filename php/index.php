@@ -10,14 +10,8 @@ require __DIR__ . '/controllers/ConversionController.php';
 
 $app = AppFactory::create();
 
-$app->get('/accounts/1/balance/convert/crypto?to=BTC', function (Request $request, Response $response, array $args) {
+$app->get('/', function (Request $request, Response $response, array $args) {
     $response->getBody()->write("Test page");
-    return $response;
-});
-
-$app->get('/hello/{name}', function (Request $request, Response $response, array $args) {
-    $name = $args['name'];
-    $response->getBody()->write("Hello, $name");
     return $response;
 });
 
@@ -32,5 +26,6 @@ $app->get('/accounts/1/balance',            "ConversionController:getBalance");
 
 $app->get('/accounts/1/balance/convert/crypto?to=BTC', "TransactionsController:fiat");
 $app->get('/accounts/1/balance/convert/crypto?to=BTC', "TransactionsController:crypto");
+
 
 $app->run();
