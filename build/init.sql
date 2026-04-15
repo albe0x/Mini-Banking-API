@@ -7,7 +7,7 @@ CREATE TABLE accounts (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE TABLE transactions (
-  id INT NOT NULL,
+  id INT NOT NULL AUTO_INCREMENT,
   account_id INT NOT NULL,
   type VARCHAR(10) NOT NULL,
   amount DOUBLE NOT NULL,
