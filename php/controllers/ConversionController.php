@@ -8,6 +8,7 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 
 class ConversionController
 {
+    //federix
   public function crypto(Request $request, Response $response, $args){
     $mysqli_connection = new MySQLi('my_mariadb', 'root', 'ciccio', 'scuola');
         
@@ -121,6 +122,8 @@ class ConversionController
 
         return $response->withHeader('Content-Type', 'application/json');
     });
+    //federix
+    //fiat
       
   }
 

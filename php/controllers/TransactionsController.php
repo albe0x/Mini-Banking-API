@@ -15,18 +15,19 @@ class TransactionsController
   }
 */
 
+    //fortux
     public function getTransaction(Request $request, Response $response, $args){}
-
+    //fortux
     public function getTransactionNumber(Request $request, Response $response, $args){}
 
+    //ALBE0X
     public function makeDepositit(Request $request, Response $response, $args){}
-
     public function makeWithdrawal(Request $request, Response $response, $args){}
 
-    public function editTransactionNumber(Request $request, Response $response, $args){}
+    //public function editTransactionNumber(Request $request, Response $response, $args){}
+    //public function deleteTransactionNumber(Request $request, Response $response, $args){}
 
-    public function deleteTransactionNumber(Request $request, Response $response, $args){}
-
+    //fortux
     public function getBalance(Request $request, Response $response, $args){}
 
 }
