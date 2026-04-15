@@ -38,7 +38,7 @@ class ConversionController
                 ->withStatus(400);
         }
 
-        // Not valid import
+        //Not valid import
         if (!is_numeric($amount) || (float)$amount <= 0) {
             $response->getBody()->write(json_encode([
                 'error' => 'Importo non valido'
@@ -47,6 +47,23 @@ class ConversionController
                 ->withHeader('Content-Type', 'application/json')
                 ->withStatus(400);
         }
+
+        //Target currency not supported
+        $data = json_decode($json, true);
+
+        if (!isset($data['rates'][$to])) {
+            $response->getBody()->write(json_encode([
+                'error' => 'Target currency not supported'
+            ]));
+            return $response
+                ->withHeader('Content-Type', 'application/json')
+                ->withStatus(400);
+        }
+
+        //Fiat currency not supported
+        //TODO
+
+        //404
 
         $stmt = $mysqli->prepare('SELECT id, currency FROM accounts WHERE id = ?');
         $stmt->bind_param('i', $accountId);
@@ -63,7 +80,9 @@ class ConversionController
                 ->withStatus(404);
         }
 
-    $amount = $params['balance_after'] ?? null;
+        //502
+
+        $amount = $params['balance_after'] ?? null;
 
 
         $from = strtoupper($account['currency']);
@@ -75,6 +94,7 @@ class ConversionController
             FROM transactions
             WHERE account_id = ?
         ");
+
         $stmt->bind_param('i', $accountId);
         $stmt->execute();
         $result = $stmt->get_result();
@@ -91,17 +111,6 @@ class ConversionController
             return $response
                 ->withHeader('Content-Type', 'application/json')
                 ->withStatus(502);
-        }
-
-        $data = json_decode($json, true);
-
-        if (!isset($data['rates'][$to])) {
-            $response->getBody()->write(json_encode([
-                'error' => 'Target currency not supported'
-            ]));
-            return $response
-                ->withHeader('Content-Type', 'application/json')
-                ->withStatus(400);
         }
 
         $rate = (float)$data['rates'][$to];
@@ -123,8 +132,6 @@ class ConversionController
     });
       
   }
-
-
 
 }
 
