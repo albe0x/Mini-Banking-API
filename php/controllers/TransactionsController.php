@@ -23,7 +23,7 @@ class TransactionsController
     //fortux
     public function getTransaction(Request $request, Response $response, $args){
       // apro connessione al database
-      $mysqli = new MySQLi('my_mariadb', 'root', 'ciccio', 'scuola');
+      $mysqli = new MySQLi('my_mariadb', 'root', 'ciccio', 'banking');
 
       // controllo eventuali errori di connessione
       if ($mysqli->connect_error) {
@@ -71,7 +71,7 @@ class TransactionsController
 
     public function getTransactionNumber(Request $request, Response $response, $args){
       // apro connessione al db
-      $mysqli = new MySQLi('my_mariadb', 'root', 'ciccio', 'scuola');
+      $mysqli = new MySQLi('my_mariadb', 'root', 'ciccio', 'banking');
       if ($mysqli->connect_error) {
         $response->getBody()->write(json_encode(['error'=>'DB error']));
         return $response->withHeader('Content-Type','application/json')->withStatus(500);
@@ -178,7 +178,7 @@ class TransactionsController
     //fortux
     public function getBalance(Request $request, Response $response, $args){
       // apro connessione al db
-      $mysqli = new MySQLi('my_mariadb', 'root', 'ciccio', 'scuola');
+      $mysqli = new MySQLi('my_mariadb', 'root', 'ciccio', 'banking');
       if ($mysqli->connect_error) {
         $response->getBody()->write(json_encode(['error'=>'DB error']));
         return $response->withHeader('Content-Type','application/json')->withStatus(500);
