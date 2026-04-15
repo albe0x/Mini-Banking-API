@@ -10,7 +10,7 @@ class ConversionController
 {
     //federix
   public function crypto(Request $request, Response $response, $args){
-    $mysqli = new MySQLi('my_mariadb', 'root', 'ciccio', 'scuola');
+    $mysqli = new MySQLi('my_mariadb', 'root', 'ciccio', 'banking');
         
         $app->get('/accounts/{id}/balance/convert/fiat', function (Request $request, Response $response, array $args) use ($mysqli) {
         $accountId = (int)$args['id'];
