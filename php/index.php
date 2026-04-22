@@ -15,18 +15,18 @@ $app->get('/', function (Request $request, Response $response, array $args) {
     return $response;
 });
 
-$app->get('/accounts/{id}/transactions',       "TransactionsController:getTransaction");
-$app->get('/accounts/{id}/transactions/5',     "TransactionsController:getTransactionNumber");
-$app->post('/accounts/{id}/deposits ',         "TransactionsController:makeDepositit");
-$app->post('/accounts/{id}/withdrawals',       "TransactionsController:makeWithdrawal");
-$app->put('/accounts/{id}/transactions/5 ',    "TransactionsController:editTransactionNumber");
-$app->delete('/accounts/{id}/transactions/5',  "TransactionsController:deleteTransactionNumber");
+$app->get('/accounts/{id}/transactions',                    "TransactionsController:getTransaction");
+$app->get('/accounts/{id}/transactions/{transaction_id}',   "TransactionsController:getTransactionNumber");
+$app->post('/accounts/{id}/deposits ',                      "TransactionsController:makeDepositit");
+$app->post('/accounts/{id}/withdrawals',                    "TransactionsController:makeWithdrawal");
+$app->put('/accounts/{id}/transactions/{transaction_id}',                 "TransactionsController:editTransactionNumber");
+$app->delete('/accounts/{id}/transactions/{transaction_id}',               "TransactionsController:deleteTransactionNumber");
 
-$app->get('/accounts/{id}/balance',            "TransactionsController:getBalance");
+$app->get('/accounts/{id}/balance',                         "TransactionsController:getBalance");
 
 
-$app->get('/accounts/{id}/balance/convert/crypto?to=BTC', "ConversionController:fiat");
-$app->get('/accounts/{id}/balance/convert/crypto?to=BTC', "ConversionController:crypto");
+$app->get('/accounts/{id}/balance/convert/fiat?to={to}',    "ConversionController:fiat");
+$app->get('/accounts/{id}/balance/convert/crypto?to={to}',  "ConversionController:crypto");
 
 
 $app->run();
