@@ -12,7 +12,6 @@ class ConversionController
 {
     private function getDbConnection(): mysqli
     {
-        
         return new MySQLi('my_mariadb', 'root', 'ciccio', 'banking');
     }
 
@@ -147,55 +146,5 @@ class ConversionController
             'symbol' => $symbol,
             'rate' => $rate
         ]);
-    }
-
-    // 3. ESEMPIO PRELIEVO (Gestione Importi/Saldo)
-
-    public function withdraw(Request $request, Response $response, array $args): Response
-    {
-        $accountId = (int)$args['id'];
-        $body = json_decode($request->getBody()->getContents(), true);
-        $amount = $body['amount'] ?? null;
-
-        // 400 - Importo mancante
-        if ($amount === null || $amount === '') {
-            return $this->jsonResponse($response, ['error' => 'importo mancante'], 400);
-        }
-
-        // 400 - Importo non valido
-        if (!is_numeric($amount) || (float)$amount <= 0) {
-            return $this->jsonResponse($response, ['error' => 'importo non valido'], 400);
-        }
-
-        $amount = (float)$amount;
-        $mysqli = $this->getDbConnection();
-
-        // 404 - Controllo Conto
-        $stmt = $mysqli->prepare('SELECT id FROM accounts WHERE id = ?');
-        $stmt->bind_param('i', $accountId);
-        $stmt->execute();
-        if (!$stmt->get_result()->fetch_assoc()) {
-            return $this->jsonResponse($response, ['error' => 'conto non trovato'], 404);
-        }
-
-        // Calcolo del saldo disponibile per la verifica
-        $stmt = $mysqli->prepare("
-            SELECT
-                COALESCE(SUM(CASE WHEN type = 'deposit' THEN amount ELSE 0 END), 0) -
-                COALESCE(SUM(CASE WHEN type = 'withdrawal' THEN amount ELSE 0 END), 0) AS balance
-            FROM transactions
-            WHERE account_id = ?
-        ");
-        $stmt->bind_param('i', $accountId);
-        $stmt->execute();
-        $balance = (float)($stmt->get_result()->fetch_assoc()['balance'] ?? 0);
-
-        // 422 - Prelievo superiore al saldo
-        if ($amount > $balance) {
-            return $this->jsonResponse($response, ['error' => 'prelievo superiore al saldo disponibile'], 422); // o 400
-        }
-
-        // Inserimento prelievo (Logica mock)
-        return $this->jsonResponse($response, ['status' => 'success', 'message' => 'Prelievo effettuato']);
     }
 }
