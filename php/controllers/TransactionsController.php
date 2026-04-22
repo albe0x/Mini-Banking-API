@@ -2,24 +2,8 @@
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 
-/*
-  Controller per le operazioni sulle transazioni.
-  I commenti sono in italiano e spiegano i passaggi principali.
-*/
 class TransactionsController
 {
-  
-/*   
-  public function index(Request $request, Response $response, $args){
-    $mysqli_connection = new MySQLi('my_mariadb', 'root', 'ciccio', 'banking');
-    $result = $mysqli_connection->query("SELECT * FROM accounts");
-    $results = $result->fetch_all(MYSQLI_ASSOC);
-
-    $response->getBody()->write(json_encode($results));
-    return $response->withHeader("Content-type", "application/json")->withStatus(200);
-  }
-*/
-
     //fortux
     public function getTransaction(Request $request, Response $response, $args){
       // apro connessione al database
@@ -138,14 +122,16 @@ class TransactionsController
     }
 
     //ALBE0X
-    public function makeDepositit(Request $request, Response $response, $args){
-      return makeTransaction($request, $response, $args, "depositit");
+    public function makeDeposit(Request $request, Response $response, $args){
+      return $this->makeTransaction($request, $response, $args, "depositit");
     }
 
+    //ALBE0X
     public function makeWithdrawal(Request $request, Response $response, $args){
-      return makeTransaction($request, $response, $args, "withdrawal");
+      return  $this->makeTransaction($request, $response, $args, "withdrawal");
     }
 
+    //ALBE0X
     public function makeTransaction(Request $request, Response $response, $args, $type){
       $mysqli = new MySQLi('my_mariadb', 'root', 'ciccio', 'banking');
 
@@ -154,22 +140,22 @@ class TransactionsController
 
       $data = $request->getParsedBody();
     
-      $account_id  = $data['account_id'] ?? null;
+      $account_id  = $args['id'] ?? null;
       $amount      = $data['amount'] ?? 0;
       $description = $data['description'] ?? '';
       $created_at  = $data['created_at'] ?? date('Y-m-d H:i:s');
 
-      $stmt->bind_param("isdds", $account_id, $type, $amount, $description, $created_at);
+      $stmt->bind_param("isdss", $account_id, $type, $amount, $description, $created_at);
 
-      // 3. Esegui la query
       if ($stmt->execute()) {
-          echo "Nuovo record inserito con successo! ID: " . $mysql_connection->insert_id;
+          echo "Nuovo record inserito con successo! ID: ";
       } else {
-          echo "Errore durante l'inserimento: " . $stmt->error;
+          echo "Errore durante l'inserimento: ";
+
       }
 
-      // 4. Chiudi lo statement
       $stmt->close();
+      return $response;
     }
 
     //public function editTransactionNumber(Request $request, Response $response, $args){}
