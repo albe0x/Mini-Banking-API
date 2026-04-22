@@ -3,7 +3,7 @@ CREATE TABLE accounts (
   owner_name VARCHAR(20) NOT NULL,
   currency VARCHAR(10) NOT NULL,
   created_at DATE NOT NULL,
-  balance_after DOUBLE NOT NULL DEFAULT 0
+  balance DOUBLE NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE TABLE transactions (
@@ -17,7 +17,7 @@ CREATE TABLE transactions (
   FOREIGN KEY(account_id) REFERENCES accounts(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
-INSERT INTO accounts (owner_name, currency, created_at, balance_after)
+INSERT INTO accounts (owner_name, currency, created_at, balance)
 VALUES
   ('Mario Rossi', 'EUR', '2024-02-10', 1500.00),
   ('Anna Bianchi', 'USD', '2024-02-12', 2300.00),

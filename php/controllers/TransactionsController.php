@@ -151,9 +151,9 @@ class TransactionsController
         $insertRows = $stmt->affected_rows;
         $stmt->close();
 
-        // Update balance_after
+        // Update balance
         $amountWithSign = ($type == "withdrawal") ? -$amount : $amount;
-        $sql = "UPDATE accounts SET balance_after = balance_after + ? WHERE id = ?";
+        $sql = "UPDATE accounts SET balance = balance + ? WHERE id = ?";
         $stmt = $mysqli->prepare($sql);
         $stmt->bind_param("di", $amountWithSign, $account_id);
         $updateOk = $stmt->execute();
@@ -213,9 +213,9 @@ class TransactionsController
         }
         $stmt->close();
 
-        // Update balance_after - FIXED: proper integer casting
+        // Update balance - FIXED: proper integer casting
         $amountWithSign = ($type == "withdrawal") ? -$amount : $amount;
-        $sql = "UPDATE accounts SET balance_after = balance_after + ? WHERE id = ?";
+        $sql = "UPDATE accounts SET balance = balance + ? WHERE id = ?";
         $stmt = $mysqli->prepare($sql);
         $stmt->bind_param("di", $amountWithSign, $account_id);
         $stmt->execute();
@@ -255,7 +255,7 @@ class TransactionsController
       }
 
       // verifico account e prendo valuta
-      $stmt = $mysqli->prepare('SELECT id, currency, balance_after AS balance FROM accounts WHERE id = ?');
+      $stmt = $mysqli->prepare('SELECT id, currency, balance AS balance FROM accounts WHERE id = ?');
       $stmt->bind_param('i', $accountId);
       $stmt->execute();
       $res = $stmt->get_result();

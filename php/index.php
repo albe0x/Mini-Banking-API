@@ -28,8 +28,8 @@ $app->put('/accounts/{id}/transactions/{transaction_id}',   "TransactionsControl
 $app->delete('/accounts/{id}/transactions/{transaction_id}',"TransactionsController:deleteTransactionNumber");
 
 //FRED
-$app->get('/accounts/{id}/balance/convert/fiat',            "ConversionController:fiat");
-$app->get('/accounts/{id}/balance/convert/crypto',          "ConversionController:crypto");
+$app->get('/accounts/{id}/balance/convert/fiat',            "ConversionController:convertFiat");
+$app->get('/accounts/{id}/balance/convert/crypto',          "ConversionController:convertCrypto");
 
 
 $app->run();

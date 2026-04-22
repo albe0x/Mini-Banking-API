@@ -1,0 +1,33 @@
+# Get all transactions for an account
+curl -X GET "http://localhost:8080/accounts/1/transactions"
+
+# Get a specific transaction by ID
+curl -X GET "http://localhost:8080/accounts/1/transactions/1"
+
+# Get account balance
+curl -X GET "http://localhost:8080/accounts/1/balance"
+
+# Make a deposit
+curl -X POST "http://localhost:8080/accounts/1/deposits" \
+  -H "Content-Type: application/json" \
+  -d '{"amount": 100.50, "description": "Test deposit"}'
+
+# Make a withdrawal
+curl -X POST "http://localhost:8080/accounts/1/withdrawals" \
+  -H "Content-Type: application/json" \
+  -d '{"amount": 50.00, "description": "Test withdrawal"}'
+
+# Edit a transaction (placeholder)
+curl -X PUT "http://localhost:8080/accounts/1/transactions/1" \
+  -H "Content-Type: application/json" \
+  -d '{"amount": 200.00, "description": "Updated transaction"}'
+
+# Delete a transaction (placeholder)
+curl -X DELETE "http://localhost:8080/accounts/1/transactions/1"
+
+
+# Convert balance to fiat currency 
+curl -X GET "http://localhost:8080/accounts/1/balance/convert/fiat?to=USD"
+
+# Convert balance to crypto
+curl -X GET "http://localhost:8080/accounts/1/balance/convert/crypto?to=BTC"
