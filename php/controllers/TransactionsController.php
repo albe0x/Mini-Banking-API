@@ -135,6 +135,7 @@ class TransactionsController
     public function makeTransaction(Request $request, Response $response, $args, $type){
       $mysqli = new MySQLi('my_mariadb', 'root', 'ciccio', 'banking');
 
+      // create transacion
       $sql = "INSERT INTO transactions (account_id, type, amount, description, created_at) VALUES (?, ?, ?, ?, ?)";
       $stmt = $mysqli->prepare($sql);
 
