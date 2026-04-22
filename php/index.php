@@ -5,6 +5,7 @@ use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 
 require __DIR__ . '/vendor/autoload.php';
+require_once __DIR__ . '/controllers/BaseController.php';
 require_once __DIR__ . '/controllers/TransactionsController.php';
 require_once __DIR__ . '/controllers/ConversionController.php';
 

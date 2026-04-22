@@ -8,20 +8,8 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 //crypto
 
 
-class ConversionController
+class ConversionController extends BaseController
 {
-    private function getDbConnection(): mysqli
-    {
-        return new MySQLi('my_mariadb', 'root', 'ciccio', 'banking');
-    }
-
-    private function jsonResponse(Response $response, array $data, int $status = 200): Response
-    {
-        $response->getBody()->write(json_encode($data));
-        return $response
-            ->withHeader('Content-Type', 'application/json')
-            ->withStatus($status);
-    }
 
     // 1. CONVERSIONE FIAT 
 

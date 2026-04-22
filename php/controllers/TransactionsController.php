@@ -2,16 +2,8 @@
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 
-class TransactionsController
+class TransactionsController extends BaseController
 {
-
-    //helper method
-      private function errorResponse(Response $response, string $message, int $status = 400): Response 
-      {
-          $response->getBody()->write(json_encode(['error' => $message]));
-          return $response->withHeader('Content-Type', 'application/json')->withStatus($status);
-      }
-      //return $this->errorResponse($response, 'Invalid account id');
         
     
 
@@ -19,27 +11,25 @@ class TransactionsController
 
     //fortux
     public function getTransaction(Request $request, Response $response, $args){
-      $mysqli = new MySQLi('my_mariadb', 'root', 'ciccio', 'banking');
+      $mysqli = $this->getDbConnection();
 
       if ($mysqli->connect_error) {
-          $response->getBody()->write(json_encode(['error' => 'Database connection failed', 'details' => $mysqli->connect_error]));
-          return $response->withHeader('Content-Type', 'application/json')->withStatus(500);
+          $mysqli->close();
+          return $this->errorResponse($response, 'Database connection failed: ' . $mysqli->connect_error, 500);
       }
 
       // qui "id" è l'id dell'account di cui vogliamo tutte le transazioni
       $accountId = isset($args['id']) ? (int)$args['id'] : 0;
       if ($accountId <= 0) {
           $mysqli->close();
-          $response->getBody()->write(json_encode(['error' => 'Invalid account id']));
-          return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+          return $this->errorResponse($response, 'Invalid account id');
       }
 
       $stmt = $mysqli->prepare('SELECT * FROM transactions WHERE account_id = ? ORDER BY created_at DESC');
       if (!$stmt) {
           $err = $mysqli->error;
           $mysqli->close();
-          $response->getBody()->write(json_encode(['error' => 'Failed to prepare statement', 'details' => $err]));
-          return $response->withHeader('Content-Type', 'application/json')->withStatus(500);
+          return $this->errorResponse($response, 'Failed to prepare statement: ' . $err, 500);
       }
 
       $stmt->bind_param('i', $accountId);
@@ -51,16 +41,17 @@ class TransactionsController
       $mysqli->close();
 
       // anche se vuoto ritorniamo array ([]) con 200
-      $response->getBody()->write(json_encode($transactions));
-      return $response->withHeader('Content-Type', 'application/json')->withStatus(200);
+      $stmt->close();
+      $mysqli->close();
+      return $this->jsonResponse($response, $transactions, 200);
     }
     //fortux
 
     public function getTransactionNumber(Request $request, Response $response, $args){
-      $mysqli = new MySQLi('my_mariadb', 'root', 'ciccio', 'banking');
+      $mysqli = $this->getDbConnection();
       if ($mysqli->connect_error) {
-        $response->getBody()->write(json_encode(['error'=>'DB error', 'details'=>$mysqli->connect_error]));
-        return $response->withHeader('Content-Type','application/json')->withStatus(500);
+        $mysqli->close();
+        return $this->errorResponse($response, 'DB error: ' . $mysqli->connect_error, 500);
       }
 
       // prendo l'id della transazione: route param {transaction_id} ha priorità
@@ -73,16 +64,14 @@ class TransactionsController
 
       if ($txId <= 0) {
         $mysqli->close();
-        $response->getBody()->write(json_encode(['error'=>'Invalid transaction id']));
-        return $response->withHeader('Content-Type','application/json')->withStatus(400);
+        return $this->errorResponse($response, 'Invalid transaction id');
       }
 
       $stmt = $mysqli->prepare('SELECT t.*, a.currency FROM transactions t LEFT JOIN accounts a ON t.account_id = a.id WHERE t.id = ?');
       if (!$stmt) {
         $err = $mysqli->error;
         $mysqli->close();
-        $response->getBody()->write(json_encode(['error'=>'Failed to prepare statement', 'details' => $err]));
-        return $response->withHeader('Content-Type','application/json')->withStatus(500);
+        return $this->errorResponse($response, 'Failed to prepare statement: ' . $err, 500);
       }
 
       $stmt->bind_param('i', $txId);
@@ -94,12 +83,10 @@ class TransactionsController
       $mysqli->close();
 
       if (!$transaction) {
-        $response->getBody()->write(json_encode(['error'=>'Transaction not found']));
-        return $response->withHeader('Content-Type','application/json')->withStatus(404);
+        return $this->errorResponse($response, 'Transaction not found', 404);
       }
 
-      $response->getBody()->write(json_encode($transaction));
-      return $response->withHeader('Content-Type','application/json')->withStatus(200);
+      return $this->jsonResponse($response, $transaction, 200);
     }
 
     //ALBE0X
@@ -114,20 +101,16 @@ class TransactionsController
 
     //ALBE0X
     public function makeTransaction(Request $request, Response $response, $args, $type){
-        $mysqli = new MySQLi('my_mariadb', 'root', 'ciccio', 'banking');
+        $mysqli = $this->getDbConnection();
 
         if ($mysqli->connect_error) {
-            $response->getBody()->write(json_encode(['error' => 'DB error']));
-            return $response->withHeader('Content-Type', 'application/json')->withStatus(500);
+            $mysqli->close();
+            return $this->errorResponse($response, 'DB error', 500);
         }
 
         // CHATGPT DICE CHE SNEZA $request->getParsedBody() RITORNA NULL. ADesso parlo io
         // NEW (manually parse JSON)
-        $body = $request->getBody()->getContents();
-        $data = json_decode($body, true);
-        if ($data === null) {
-            $data = $request->getParsedBody() ?? [];
-        }
+        $data = $this->getJsonBody($request);
 
         $account_id  = (int)($args['id'] ?? 0);
         $amount      = (float)($data['amount'] ?? 0);
@@ -183,14 +166,14 @@ class TransactionsController
 
     //ALBE0X
     public function makeTransactionNoDebug(Request $request, Response $response, $args, $type){
-        $mysqli = new MySQLi('my_mariadb', 'root', 'ciccio', 'banking');
+        $mysqli = $this->getDbConnection();
 
         if ($mysqli->connect_error) {
-            $response->getBody()->write(json_encode(['error' => 'DB error']));
-            return $response->withHeader('Content-Type', 'application/json')->withStatus(500);
+            $mysqli->close();
+            return $this->errorResponse($response, 'DB error', 500);
         }
 
-        $data = $request->getParsedBody();
+        $data = $this->getJsonBody($request);
         $account_id  = (int)($args['id'] ?? 0);      // FIXED: cast to int
         $amount      = (float)($data['amount'] ?? 0); // FIXED: cast to float
         $description = $data['description'] ?? '';
@@ -198,8 +181,8 @@ class TransactionsController
 
         // Validate
         if ($account_id <= 0) {
-            $response->getBody()->write(json_encode(['error' => 'Invalid account id']));
-            return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+            $mysqli->close();
+            return $this->errorResponse($response, 'Invalid account id');
         }
 
         // Insert transaction
@@ -208,8 +191,9 @@ class TransactionsController
         $stmt->bind_param("isdss", $account_id, $type, $amount, $description, $created_at);
 
         if (!$stmt->execute()) {
-            $response->getBody()->write(json_encode(['error' => 'Insert failed']));
-            return $response->withHeader('Content-Type', 'application/json')->withStatus(500);
+            $stmt->close();
+            $mysqli->close();
+            return $this->errorResponse($response, 'Insert failed', 500);
         }
         $stmt->close();
 
@@ -241,17 +225,17 @@ class TransactionsController
     //fortux
     public function getBalance(Request $request, Response $response, $args){
       // apro connessione al db
-      $mysqli = new MySQLi('my_mariadb', 'root', 'ciccio', 'banking');
+      $mysqli = $this->getDbConnection();
       if ($mysqli->connect_error) {
-        $response->getBody()->write(json_encode(['error'=>'DB error']));
-        return $response->withHeader('Content-Type','application/json')->withStatus(500);
+        $mysqli->close();
+        return $this->errorResponse($response, 'DB error', 500);
       }
 
       // prendo id account
       $accountId = isset($args['id']) ? (int)$args['id'] : 0;
       if ($accountId <= 0) {
-        $response->getBody()->write(json_encode(['error'=>'Invalid account id']));
-        return $response->withHeader('Content-Type','application/json')->withStatus(400);
+        $mysqli->close();
+        return $this->errorResponse($response, 'Invalid account id');
       }
 
       // verifico account e prendo valuta
@@ -262,8 +246,8 @@ class TransactionsController
       $account = $res->fetch_assoc();
       $stmt->close();
       if (!$account) {
-        $response->getBody()->write(json_encode(['error'=>'Account not found']));
-        return $response->withHeader('Content-Type','application/json')->withStatus(404);
+        $mysqli->close();
+        return $this->errorResponse($response, 'Account not found', 404);
       }
 
 
@@ -275,8 +259,8 @@ class TransactionsController
         'balance' => $account['balance']
       ];
 
-      $response->getBody()->write(json_encode($payload));
-      return $response->withHeader('Content-Type','application/json')->withStatus(200);
+      $mysqli->close();
+      return $this->jsonResponse($response, $payload, 200);
     }
 
 }
