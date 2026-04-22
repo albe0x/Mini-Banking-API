@@ -91,7 +91,7 @@ class TransactionsController
 
     //ALBE0X
     public function makeDeposit(Request $request, Response $response, $args){
-      return $this->makeTransaction($request, $response, $args, "depositit");
+      return $this->makeTransaction($request, $response, $args, "deposit");
     }
 
     //ALBE0X
@@ -100,35 +100,127 @@ class TransactionsController
     }
 
     //ALBE0X
-    public function makeTransaction(Request $request, Response $response, $args, $type){
-      $mysqli = new MySQLi('my_mariadb', 'root', 'ciccio', 'banking');
+public function makeTransaction(Request $request, Response $response, $args, $type){
+    $mysqli = new MySQLi('my_mariadb', 'root', 'ciccio', 'banking');
 
-      // create transacion
-      $sql = "INSERT INTO transactions (account_id, type, amount, description, created_at) VALUES (?, ?, ?, ?, ?)";
-      $stmt = $mysqli->prepare($sql);
-
-      $data = $request->getParsedBody();
-    
-      $account_id  = $args['id'] ?? null;
-      $amount      = $data['amount'] ?? 0;
-      $description = $data['description'] ?? '';
-      $created_at  = $data['created_at'] ?? date('Y-m-d H:i:s');
-
-      $stmt->bind_param("isdss", $account_id, $type, $amount, $description, $created_at);
-
-      if ($stmt->execute()) {
-          echo "Nuovo record inserito con successo! ID: ";
-      } else {
-          echo "Errore durante l'inserimento: ";
-
-      }
-
-      $stmt->close();
-      return $response;
+    if ($mysqli->connect_error) {
+        $response->getBody()->write(json_encode(['error' => 'DB error']));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus(500);
     }
 
-    //public function editTransactionNumber(Request $request, Response $response, $args){}
-    //public function deleteTransactionNumber(Request $request, Response $response, $args){}
+    // CHATGPT DICE CHE SNEZA $request->getParsedBody() RITORNA NULL. ADesso parlo io
+    // NEW (manually parse JSON)
+    $body = $request->getBody()->getContents();
+    $data = json_decode($body, true);
+    if ($data === null) {
+        $data = $request->getParsedBody() ?? [];
+    }
+
+    $account_id  = (int)($args['id'] ?? 0);
+    $amount      = (float)($data['amount'] ?? 0);
+    $description = $data['description'] ?? '';
+    $created_at  = date('Y-m-d');
+
+    if ($account_id <= 0) {
+        $response->getBody()->write(json_encode(['error' => 'Invalid account id']));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+    }
+
+    // Insert transaction
+    $sql = "INSERT INTO transactions (account_id, type, amount, description, created_at) VALUES (?, ?, ?, ?, ?)";
+    $stmt = $mysqli->prepare($sql);
+    $stmt->bind_param("isdss", $account_id, $type, $amount, $description, $created_at);
+    $insertOk = $stmt->execute();
+    $insertError = $stmt->error;
+    $insertRows = $stmt->affected_rows;
+    $stmt->close();
+
+    // Update balance_after
+    $amountWithSign = ($type == "withdrawal") ? -$amount : $amount;
+    $sql = "UPDATE accounts SET balance_after = balance_after + ? WHERE id = ?";
+    $stmt = $mysqli->prepare($sql);
+    $stmt->bind_param("di", $amountWithSign, $account_id);
+    $updateOk = $stmt->execute();
+    $updateError = $stmt->error;
+    $updateRows = $stmt->affected_rows;
+    $stmt->close();
+    $mysqli->close();
+
+    // DEBUG RESPONSE
+    $response->getBody()->write(json_encode([
+        'success' => true,
+        'debug' => [
+            'account_id' => $account_id,
+            'amount' => $amount,
+            'amountWithSign' => $amountWithSign,
+            'type' => $type,
+            'insert_ok' => $insertOk,
+            'insert_error' => $insertError,
+            'insert_rows' => $insertRows,
+            'update_ok' => $updateOk,
+            'update_error' => $updateError,
+            'update_rows' => $updateRows
+        ]
+    ]));
+    return $response->withHeader('Content-Type', 'application/json')->withStatus(201);
+}
+
+    //ALBE0X
+    public function makeTransactionNoDebug(Request $request, Response $response, $args, $type){
+        $mysqli = new MySQLi('my_mariadb', 'root', 'ciccio', 'banking');
+
+        if ($mysqli->connect_error) {
+            $response->getBody()->write(json_encode(['error' => 'DB error']));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(500);
+        }
+
+        $data = $request->getParsedBody();
+        $account_id  = (int)($args['id'] ?? 0);      // FIXED: cast to int
+        $amount      = (float)($data['amount'] ?? 0); // FIXED: cast to float
+        $description = $data['description'] ?? '';
+        $created_at  = date('Y-m-d');
+
+        // Validate
+        if ($account_id <= 0) {
+            $response->getBody()->write(json_encode(['error' => 'Invalid account id']));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+        }
+
+        // Insert transaction
+        $sql = "INSERT INTO transactions (account_id, type, amount, description, created_at) VALUES (?, ?, ?, ?, ?)";
+        $stmt = $mysqli->prepare($sql);
+        $stmt->bind_param("isdss", $account_id, $type, $amount, $description, $created_at);
+
+        if (!$stmt->execute()) {
+            $response->getBody()->write(json_encode(['error' => 'Insert failed']));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(500);
+        }
+        $stmt->close();
+
+        // Update balance_after - FIXED: proper integer casting
+        $amountWithSign = ($type == "withdrawal") ? -$amount : $amount;
+        $sql = "UPDATE accounts SET balance_after = balance_after + ? WHERE id = ?";
+        $stmt = $mysqli->prepare($sql);
+        $stmt->bind_param("di", $amountWithSign, $account_id);
+        $stmt->execute();
+        $stmt->close();
+        $mysqli->close();
+
+        $response->getBody()->write(json_encode(['success' => true]));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus(201);
+    }
+
+
+    //tobe implemented
+    public function editTransactionNumber(Request $request, Response $response, $args){
+        $response->getBody()->write(json_encode(['error' => 'Not implemented']));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus(501);
+    }
+
+    public function deleteTransactionNumber(Request $request, Response $response, $args){
+        $response->getBody()->write(json_encode(['error' => 'Not implemented']));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus(501);
+    }
 
     //fortux
     public function getBalance(Request $request, Response $response, $args){
@@ -147,7 +239,7 @@ class TransactionsController
       }
 
       // verifico account e prendo valuta
-      $stmt = $mysqli->prepare('SELECT id, currency FROM accounts WHERE id = ?');
+      $stmt = $mysqli->prepare('SELECT id, currency, balance_after AS balance FROM accounts WHERE id = ?');
       $stmt->bind_param('i', $accountId);
       $stmt->execute();
       $res = $stmt->get_result();
@@ -158,26 +250,13 @@ class TransactionsController
         return $response->withHeader('Content-Type','application/json')->withStatus(404);
       }
 
-      // calcolo saldo semplice: depositi - prelievi
-      $stmt = $mysqli->prepare("
-        SELECT
-          COALESCE(SUM(CASE WHEN type = 'deposit' THEN amount ELSE 0 END),0) -
-          COALESCE(SUM(CASE WHEN type = 'withdrawal' THEN amount ELSE 0 END),0) AS balance
-        FROM transactions
-        WHERE account_id = ?
-      ");
-      $stmt->bind_param('i', $accountId);
-      $stmt->execute();
-      $row = $stmt->get_result()->fetch_assoc();
-      $balance = (float)($row['balance'] ?? 0);
-      $stmt->close();
-      $mysqli->close();
+
 
       // ritorno solo le info richieste (studente)
       $payload = [
         'account_id' => $accountId,
         'currency' => $account['currency'] ?? null,
-        'balance' => $balance
+        'balance' => $account['balance']
       ];
 
       $response->getBody()->write(json_encode($payload));
