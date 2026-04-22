@@ -6,118 +6,86 @@ class TransactionsController
 {
     //fortux
     public function getTransaction(Request $request, Response $response, $args){
-      // apro connessione al database
       $mysqli = new MySQLi('my_mariadb', 'root', 'ciccio', 'banking');
 
-      // controllo eventuali errori di connessione
       if ($mysqli->connect_error) {
-          $response->getBody()->write(json_encode(['error' => 'Database connection failed']));
+          $response->getBody()->write(json_encode(['error' => 'Database connection failed', 'details' => $mysqli->connect_error]));
           return $response->withHeader('Content-Type', 'application/json')->withStatus(500);
       }
 
-      // estraggo l'id transazione dai parametri della route
-      $id = isset($args['id']) ? (int)$args['id'] : 0;
-      if ($id <= 0) {
-          // id non valido: rispondo con 400 Bad Request
-          $response->getBody()->write(json_encode(['error' => 'Invalid transaction id']));
+      // qui "id" è l'id dell'account di cui vogliamo tutte le transazioni
+      $accountId = isset($args['id']) ? (int)$args['id'] : 0;
+      if ($accountId <= 0) {
+          $mysqli->close();
+          $response->getBody()->write(json_encode(['error' => 'Invalid account id']));
           return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
       }
 
-      // preparo la query per recuperare la transazione
-      $stmt = $mysqli->prepare('SELECT id, account_id, type, amount, balance_after, created_at FROM transactions WHERE id = ?');
+      $stmt = $mysqli->prepare('SELECT * FROM transactions WHERE account_id = ? ORDER BY created_at DESC');
       if (!$stmt) {
-          // errore nella preparazione della statement
-          $response->getBody()->write(json_encode(['error' => 'Failed to prepare statement']));
+          $err = $mysqli->error;
+          $mysqli->close();
+          $response->getBody()->write(json_encode(['error' => 'Failed to prepare statement', 'details' => $err]));
           return $response->withHeader('Content-Type', 'application/json')->withStatus(500);
       }
 
-      // eseguo la query e prendo il risultato
-      $stmt->bind_param('i', $id);
+      $stmt->bind_param('i', $accountId);
       $stmt->execute();
-      $result = $stmt->get_result();
-      $transaction = $result->fetch_assoc();
+      $res = $stmt->get_result();
+      $transactions = $res->fetch_all(MYSQLI_ASSOC);
 
-      // chiudo statement e connessione
       $stmt->close();
       $mysqli->close();
 
-      if (!$transaction) {
-          // transazione non trovata: 404 Not Found
-          $response->getBody()->write(json_encode(['error' => 'Transaction not found']));
-          return $response->withHeader('Content-Type', 'application/json')->withStatus(404);
-      }
-
-      // ritorno la transazione in formato JSON con 200 OK
-      $response->getBody()->write(json_encode($transaction));
+      // anche se vuoto ritorniamo array ([]) con 200
+      $response->getBody()->write(json_encode($transactions));
       return $response->withHeader('Content-Type', 'application/json')->withStatus(200);
     }
     //fortux
 
     public function getTransactionNumber(Request $request, Response $response, $args){
-      // apro connessione al db
       $mysqli = new MySQLi('my_mariadb', 'root', 'ciccio', 'banking');
       if ($mysqli->connect_error) {
-        $response->getBody()->write(json_encode(['error'=>'DB error']));
+        $response->getBody()->write(json_encode(['error'=>'DB error', 'details'=>$mysqli->connect_error]));
         return $response->withHeader('Content-Type','application/json')->withStatus(500);
       }
 
-      // prendo id account
-      $accountId = isset($args['id']) ? (int)$args['id'] : 0;
-      if ($accountId <= 0) {
-        $response->getBody()->write(json_encode(['error'=>'Invalid account id']));
+      // prendo l'id della transazione: route param {transaction_id} ha priorità
+      $query = $request->getQueryParams();
+      $txId = 0;
+      if (isset($args['transaction_id'])) $txId = (int)$args['transaction_id'];
+      elseif (isset($args['txId'])) $txId = (int)$args['txId'];
+      elseif (isset($query['transaction_id'])) $txId = (int)$query['transaction_id'];
+      elseif (isset($query['id'])) $txId = (int)$query['id'];
+
+      if ($txId <= 0) {
+        $mysqli->close();
+        $response->getBody()->write(json_encode(['error'=>'Invalid transaction id']));
         return $response->withHeader('Content-Type','application/json')->withStatus(400);
       }
 
-      // controllo che l'account esista
-      $stmt = $mysqli->prepare('SELECT id, currency FROM accounts WHERE id = ?');
-      $stmt->bind_param('i', $accountId);
-      $stmt->execute();
-      $res = $stmt->get_result();
-      $account = $res->fetch_assoc();
-      $stmt->close();
-      if (!$account) {
-        $response->getBody()->write(json_encode(['error'=>'Account not found']));
-        return $response->withHeader('Content-Type','application/json')->withStatus(404);
+      $stmt = $mysqli->prepare('SELECT t.*, a.currency FROM transactions t LEFT JOIN accounts a ON t.account_id = a.id WHERE t.id = ?');
+      if (!$stmt) {
+        $err = $mysqli->error;
+        $mysqli->close();
+        $response->getBody()->write(json_encode(['error'=>'Failed to prepare statement', 'details' => $err]));
+        return $response->withHeader('Content-Type','application/json')->withStatus(500);
       }
 
-      // parametri per paginazione semplici
-      $params = $request->getQueryParams();
-      $limit = isset($params['limit']) ? (int)$params['limit'] : 10;
-      $offset = isset($params['offset']) ? (int)$params['offset'] : 0;
-      if ($limit <= 0) $limit = 10;
-      if ($limit > 100) $limit = 100;
-      if ($offset < 0) $offset = 0;
-
-      // prendo il totale
-      $stmt = $mysqli->prepare('SELECT COUNT(*) AS total FROM transactions WHERE account_id = ?');
-      $stmt->bind_param('i', $accountId);
+      $stmt->bind_param('i', $txId);
       $stmt->execute();
-      $cnt = $stmt->get_result()->fetch_assoc();
-      $total = (int)($cnt['total'] ?? 0);
-      $stmt->close();
+      $res = $stmt->get_result();
+      $transaction = $res->fetch_assoc();
 
-      // prendo le transazioni (solo campi minimi)
-      $stmt = $mysqli->prepare('SELECT id, type, amount FROM transactions WHERE account_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?');
-      $stmt->bind_param('iii', $accountId, $limit, $offset);
-      $stmt->execute();
-      $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
       $stmt->close();
       $mysqli->close();
 
-      // risposta semplice come richiesta
-      $payload = [
-        'account_id' => $accountId,
-        'total_transactions' => $total,
-        'transactions' => array_map(function($t){
-          return [
-            'id' => (int)$t['id'],
-            'type' => $t['type'],
-            'amount' => (float)$t['amount']
-          ];
-        }, $rows)
-      ];
+      if (!$transaction) {
+        $response->getBody()->write(json_encode(['error'=>'Transaction not found']));
+        return $response->withHeader('Content-Type','application/json')->withStatus(404);
+      }
 
-      $response->getBody()->write(json_encode($payload));
+      $response->getBody()->write(json_encode($transaction));
       return $response->withHeader('Content-Type','application/json')->withStatus(200);
     }
 
