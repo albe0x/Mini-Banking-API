@@ -103,25 +103,18 @@ class TransactionsController extends Helper
 			return $this->errorResponse($response, 'DB error', 500);
 		}
 
-		// CHATGPT DICE CHE SNEZA $request->getParsedBody() RITORNA NULL. ADesso parlo io
-		// NEW (manually parse JSON)
-		$body = $request->getBody()->getContents();
-		$data = json_decode($body, true);
-		if ($data === null) {
-			$data = $request->getParsedBody() ?? [];
-		}
-
+		$data = getJsonBody($body);
 		$account_id  = (int)($args['id'] ?? 0);
 		$amount      = (float)($data['amount'] ?? 0);
 		$description = $data['description'] ?? '';
 		$created_at  = date('Y-m-d');
 
 		if ($account_id <= 0) {
-		return $this->errorResponse($response, 'Invalid account id');
+			return $this->errorResponse($response, 'Invalid account id');
 		}
 
 		if($amount < 0){
-		return $this->errorResponse($response, 'Invalid ammount');
+			return $this->errorResponse($response, 'Invalid ammount');
 		}
 
 		// Insert transaction
@@ -144,71 +137,9 @@ class TransactionsController extends Helper
 		$stmt->close();
 		$mysqli->close();
 
-		// DEBUG RESPONSE
-		$response->getBody()->write(json_encode([
-			'success' => true,
-			'debug' => [
-				'account_id' => $account_id,
-				'amount' => $amount,
-				'amountWithSign' => $amountWithSign,
-				'type' => $type,
-				'insert_ok' => $insertOk,
-				'insert_error' => $insertError,
-				'insert_rows' => $insertRows,
-				'update_ok' => $updateOk,
-				'update_error' => $updateError,
-				'update_rows' => $updateRows
-			]
-		]));
-		return $response->withHeader('Content-Type', 'application/json')->withStatus(201);
-	}
-
-	//ALBE0X
-	public function makeTransactionNoDebug(Request $request, Response $response, $args, $type){
-		$mysqli = $this->getDbConnection();
-
-		if ($mysqli->connect_error) {
-			$mysqli->close();
-			return $this->errorResponse($response, 'DB error', 500);
-		}
-
-		$data = $request->getParsedBody();
-		$account_id  = (int)($args['id'] ?? 0);      // FIXED: cast to int
-		$amount      = (float)($data['amount'] ?? 0); // FIXED: cast to float
-		$description = $data['description'] ?? '';
-		$created_at  = date('Y-m-d');
-
-		// Validate
-		if ($account_id <= 0) {
-			$mysqli->close();
-			return $this->errorResponse($response, 'Invalid account id');
-		}
-
-		// Insert transaction
-		$sql = "INSERT INTO transactions (account_id, type, amount, description, created_at) VALUES (?, ?, ?, ?, ?)";
-		$stmt = $mysqli->prepare($sql);
-		$stmt->bind_param("isdss", $account_id, $type, $amount, $description, $created_at);
-
-		if (!$stmt->execute()) {
-			$stmt->close();
-			$mysqli->close();
-			return $this->errorResponse($response, 'Insert failed', 500);
-		}
-		$stmt->close();
-
-		// Update balance - FIXED: proper integer casting
-		$amountWithSign = ($type == "withdrawal") ? -$amount : $amount;
-		$sql = "UPDATE accounts SET balance = balance + ? WHERE id = ?";
-		$stmt = $mysqli->prepare($sql);
-		$stmt->bind_param("di", $amountWithSign, $account_id);
-		$stmt->execute();
-		$stmt->close();
-		$mysqli->close();
-
 		$response->getBody()->write(json_encode(['success' => true]));
 		return $response->withHeader('Content-Type', 'application/json')->withStatus(201);
 	}
-
 
 	//tobe implemented
 	public function editTransactionNumber(Request $request, Response $response, $args){
@@ -222,44 +153,42 @@ class TransactionsController extends Helper
 	}
 
 	//fortux
-	public function getBalance(Request $request, Response $response, $args){
-	// apro connessione al db
-	$mysqli = $this->getDbConnection();
-	if ($mysqli->connect_error) {
+	public function getBalance(Request $request, Response $response, $args)
+	{
+		$mysqli = $this->getDbConnection();
+		if ($mysqli->connect_error) {
+			$mysqli->close();
+			return $this->errorResponse($response, 'DB error', 500);
+		}
+
+		$accountId = (int)($args['id'] ?? 0);
+		if ($accountId <= 0) {
+			$mysqli->close();
+			return $this->errorResponse($response, 'Invalid account id');
+		}
+
+		$stmt = $mysqli->prepare('SELECT id, currency, balance FROM accounts WHERE id = ?');
+		if (!$stmt) {
+			$mysqli->close();
+			return $this->errorResponse($response, 'Failed to prepare statement', 500);
+		}
+
+		$stmt->bind_param('i', $accountId);
+		$stmt->execute();
+		$res = $stmt->get_result();
+		$account = $res->fetch_assoc();
+		$stmt->close();
 		$mysqli->close();
-		return $this->errorResponse($response, 'DB error', 500);
-	}
 
-	// prendo id account
-	$accountId = isset($args['id']) ? (int)$args['id'] : 0;
-	if ($accountId <= 0) {
-		$mysqli->close();
-		return $this->errorResponse($response, 'Invalid account id');
-	}
+		if (!$account) {
+			return $this->errorResponse($response, 'Account not found', 404);
+		}
 
-	// verifico account e prendo valuta
-	$stmt = $mysqli->prepare('SELECT id, currency, balance AS balance FROM accounts WHERE id = ?');
-	$stmt->bind_param('i', $accountId);
-	$stmt->execute();
-	$res = $stmt->get_result();
-	$account = $res->fetch_assoc();
-	$stmt->close();
-	if (!$account) {
-		$mysqli->close();
-		return $this->errorResponse($response, 'Account not found', 404);
-	}
-
-
-
-	// ritorno solo le info richieste (studente)
-	$payload = [
-		'account_id' => $accountId,
-		'currency' => $account['currency'] ?? null,
-		'balance' => $account['balance']
-	];
-
-	$mysqli->close();
-	return $this->jsonResponse($response, $payload, 200);
+		return $this->jsonResponse($response, [
+			'account_id' => $accountId,
+			'currency' => $account['currency'] ?? null,
+			'balance' => $account['balance']
+		], 200);
 	}
 
 }
