@@ -2,9 +2,20 @@
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\RequestInterface as Request;
 
-//Classe usata come base per i controller, contiene metodi comuni per risposte JSON, errori e connessione al DB
+//Classe usata come base per i controller.
 class BaseController
 {
+    private $mysqli;
+
+    //Connessione al database
+    protected function getDbConnection(): mysqli
+    {
+        if(!$this->mysqli) {
+            $this->mysqli = new MySQLi('my_mariadb', 'root', 'ciccio', 'banking');
+        }
+        return $this->mysqli;
+    }
+
     //Risposta di errore standardizzata
     protected function errorResponse(Response $response, string $message, int $status = 400): Response
     {
@@ -17,12 +28,6 @@ class BaseController
     {
         $response->getBody()->write(json_encode($data));
         return $response->withHeader('Content-Type', 'application/json')->withStatus($status);
-    }
-
-    //Connessione al database
-    protected function getDbConnection(): mysqli
-    {
-        return new MySQLi('my_mariadb', 'root', 'ciccio', 'banking');
     }
 
     //Metodo per ottenere i dati JSON dal body della richiesta

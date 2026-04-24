@@ -7,56 +7,33 @@ class TransactionsController extends Helper
 	//fortux
 	public function getTransaction(Request $request, Response $response, $args)
 	{
+		// DB connection
 		$mysqli = $this->getDbConnection();
-
-		if ($mysqli->connect_error) {
-			$mysqli->close();
-			return $this->errorResponse($response, 'Database connection failed: ' . $mysqli->connect_error, 500);
-		}
 
 		// qui "id" è l'id dell'account di cui vogliamo tutte le transazioni
 		$accountId = isset($args['id']) ? (int)$args['id'] : 0;
 		if ($accountId <= 0) {
-			$mysqli->close();
 			return $this->errorResponse($response, 'Invalid account id');
 		}
 
+		// DB query
 		$stmt = $mysqli->prepare('SELECT * FROM transactions WHERE account_id = ? ORDER BY created_at DESC');
-		if (!$stmt) {
-			$err = $mysqli->error;
-			$mysqli->close();
-			return $this->errorResponse($response, 'Failed to prepare statement: ' . $err, 500);
-		}
-
 		$stmt->bind_param('i', $accountId);
 		$stmt->execute();
 		$res = $stmt->get_result();
 		$transactions = $res->fetch_all(MYSQLI_ASSOC);
 
-		$stmt->close();
-		$mysqli->close();
-
 		return $this->jsonResponse($response, $transactions, 200);
 	}
-	//fortux
 
+
+	//fortux
 	public function getTransactionNumber(Request $request, Response $response, $args)
 	{
+		// DB connection
 		$mysqli = $this->getDbConnection();
-		if ($mysqli->connect_error) {
-			$mysqli->close();
-			return $this->errorResponse($response, 'DB error: ' . $mysqli->connect_error, 500);
-		}
 
-		// prendo l'id della transazione: route param {transaction_id} ha priorità
-		$query = $request->getQueryParams();
-		$txId = 0;
-		if (isset($args['transaction_id'])) $txId = (int)$args['transaction_id'];
-		elseif (isset($args['txId'])) $txId = (int)$args['txId'];
-		elseif (isset($query['transaction_id'])) $txId = (int)$query['transaction_id'];
-		elseif (isset($query['id'])) $txId = (int)$query['id'];
-
-		if ($txId <= 0) {
+		if ($args['transaction_id'] <= 0) {
 			$mysqli->close();
 			return $this->errorResponse($response, 'Invalid transaction id');
 		}
@@ -68,7 +45,7 @@ class TransactionsController extends Helper
 			return $this->errorResponse($response, 'Failed to prepare statement: ' . $err, 500);
 		}
 
-		$stmt->bind_param('i', $txId);
+		$stmt->bind_param('i', $args['transaction_id']);
 		$stmt->execute();
 		$res = $stmt->get_result();
 		$transaction = $res->fetch_assoc();
@@ -98,43 +75,36 @@ class TransactionsController extends Helper
 	//ALBE0X
 	protected function makeTransaction(Request $request, Response $response, $args, $type)
 	{
+		// DB connection
 		$mysqli = $this->getDbConnection();
 
-		if ($mysqli->connect_error) {
-			$mysqli->close();
-			return $this->errorResponse($response, 'DB error', 500);
-		}
-
+		// Get data from request
 		$data = $this->getJsonBody($request);
 		$account_id  = (int)($args['id'] ?? 0);
 		$amount      = (float)($data['amount'] ?? 0);
 		$description = $data['description'] ?? '';
 		$created_at  = date('Y-m-d');
 
-		if ($account_id <= 0) {
-			$mysqli->close();
+		// Check If account_id is valid
+		$stmt = $mysqli->prepare("SELECT 1 FROM accounts WHERE id = ?");
+		$stmt->bind_param("i", $id);
+		$stmt->execute();
+		$res = $stmt->get_result();
+		if ($res->num_rows == 0) {
 			return $this->errorResponse($response, 'Invalid account id');
 		}
 
+		// Check If ammount is negative
 		if($amount < 0){
-			$mysqli->close();
 			return $this->errorResponse($response, 'Invalid ammount');
 		}
 
-		// Insert transaction
-		$sql = "INSERT INTO transactions (account_id, type, amount, description, created_at) VALUES (?, ?, ?, ?, ?)";
-		$stmt = $mysqli->prepare($sql);
-		if (!$stmt) {
-			$mysqli->close();
-			return $this->errorResponse($response, 'Failed to prepare insert', 500);
-		}
+		// DB insert
+		$stmt = $mysqli->prepare("INSERT INTO transactions (account_id, type, amount, description, created_at) VALUES (?, ?, ?, ?, ?)");
 		$stmt->bind_param("isdss", $account_id, $type, $amount, $description, $created_at);
-		$insertOk = $stmt->execute();
-		$insertError = $stmt->error;
-		$insertRows = $stmt->affected_rows;
-		$stmt->close();
+		$stmt->execute();
 
-		// Update balance
+		// DB update balance
 		$amountWithSign = ($type == "withdrawal") ? -$amount : $amount;
 		$sql = "UPDATE accounts SET balance = balance + ? WHERE id = ?";
 		$stmt = $mysqli->prepare($sql);
@@ -143,37 +113,81 @@ class TransactionsController extends Helper
 			return $this->errorResponse($response, 'Failed to prepare update', 500);
 		}
 		$stmt->bind_param("di", $amountWithSign, $account_id);
-		$updateOk = $stmt->execute();
-		$updateError = $stmt->error;
-		$updateRows = $stmt->affected_rows;
-		$stmt->close();
-		$mysqli->close();
+		$stmt->execute();
 
-		$response->getBody()->write(json_encode(['success' => true]));
-		return $response->withHeader('Content-Type', 'application/json')->withStatus(201);
+		// Confitmation response
+		return $this->jsonResponse($response, ['success' => true], 201);
 	}
 
 	//tobe implemented
 	public function editTransactionNumber(Request $request, Response $response, $args)
 	{
-		$response->getBody()->write(json_encode(['error' => 'Not implemented']));
-		return $response->withHeader('Content-Type', 'application/json')->withStatus(501);
+		// DB connection
+		$mysqli = $this->getDbConnection();
+
+		// Get transaction
+		$stmt = $mysqli->prepare("SELECT * FROM transactions WHERE id = ? AND account_id = ?");
+		$stmt->bind_param("ii", $args['transaction_id'], $args['id']);
+		$stmt->execute();
+		$res = $stmt->get_result();
+		$transaction = $res->fetch_assoc();
+
+		// Set new data
+		$data = $this->getJsonBody($request);
+		$amount      = (float)	($data['amount'] 	?? $transaction['amount']);
+		$description = $data['description'] 		?? $transaction['description'];
+		$created_at  = date('Y-m-d') 				?? $transaction['created_at'];
+
+		// DB update
+		$stmt = $mysqli->prepare("UPDATE transactions SET type = ?, amount = ?, description = ?, created_at = ? WHERE id = ? AND account_id = ?");
+		$stmt->bind_param("sdssii", $type, $amount, $description, $created_at, $args['transaction_id'], $args['id']);
+		$stmt->execute();
+
+		// Update balance
+		$amountWithSign = ($type == "withdrawal") ? -$amount : $amount;
+		$stmt = $mysqli->prepare("UPDATE accounts SET balance = balance + ? WHERE id = ?");
+		$stmt->bind_param("di", $amountWithSign, $args['id']);
+		$stmt->execute();
+
+		return $this->jsonResponse($response, ['success' => true], 201);
 	}
 
 	public function deleteTransactionNumber(Request $request, Response $response, $args)
 	{
-		$response->getBody()->write(json_encode(['error' => 'Not implemented']));
-		return $response->withHeader('Content-Type', 'application/json')->withStatus(501);
-	}
+		// DB connection
+		$mysqli = $this->getDbConnection();
 
+		//Get the transaction to be deleted
+		$stmt = $mysqli->prepare("SELECT amount, type FROM transactions WHERE id = ? AND account_id = ?");
+		$stmt->bind_param("ii", $args['transaction_id'], $args['id']);
+		$stmt->execute();
+		$res = $stmt->get_result();
+		$transaction = $res->fetch_assoc();
+
+		if (!$transaction) {
+			$response->getBody()->write(json_encode(['error' => 'Transaction not found']));
+			return $response->withHeader('Content-Type', 'application/json')->withStatus(404);
+		}
+
+		$reversalAmount = ($transaction['type'] == "withdrawal") ? $transaction['amount'] : -$transaction['amount'];
+
+		// 3. Update the Account Balance
+		$stmt = $mysqli->prepare("UPDATE accounts SET balance = balance + ? WHERE id = ?");
+		$stmt->bind_param("di", $reversalAmount, $args['id']);
+		$stmt->execute();
+
+		// 4. Delete the Transaction record
+		$stmt = $mysqli->prepare("DELETE FROM transactions WHERE id = ? AND account_id = ?");
+		$stmt->bind_param("ii", $args['transaction_id'], $args['id']);
+		$stmt->execute();
+
+		// Return Success
+		return $this->jsonResponse($response, ['success' => true], 201);
+	}
 	//fortux
 	public function getBalance(Request $request, Response $response, $args)
 	{
 		$mysqli = $this->getDbConnection();
-		if ($mysqli->connect_error) {
-			$mysqli->close();
-			return $this->errorResponse($response, 'DB error', 500);
-		}
 
 		$accountId = (int)($args['id'] ?? 0);
 		if ($accountId <= 0) {
@@ -182,10 +196,6 @@ class TransactionsController extends Helper
 		}
 
 		$stmt = $mysqli->prepare('SELECT id, currency, balance FROM accounts WHERE id = ?');
-		if (!$stmt) {
-			$mysqli->close();
-			return $this->errorResponse($response, 'Failed to prepare statement', 500);
-		}
 
 		$stmt->bind_param('i', $accountId);
 		$stmt->execute();
