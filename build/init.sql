@@ -19,7 +19,7 @@ CREATE TABLE transactions (
 
 INSERT INTO accounts (owner_name, currency, created_at, balance)
 VALUES
-  ('Mario Rossi', 'EUR', '2024-02-10', 1500.00),
+  ('Mario Rossi', 'EUR', '2024-02-10', 500.00),
   ('Anna Bianchi', 'USD', '2024-02-12', 2300.00),
   ('Luca Verdi', 'EUR', '2024-03-01', 500.00),
   ('Chiara Neri', 'GBP', '2024-03-05', 1200.00),
@@ -28,7 +28,7 @@ VALUES
 INSERT INTO transactions (id, account_id, type, amount, description, created_at)
 VALUES
   (1, 1, 'deposit', 1000.00, 'Versamento iniziale', '2024-02-10'),
-  (2, 1, 'withdraw', 500.00, 'Pagamento bolletta luce', '2024-02-15'),
+  (2, 1, 'withdrawal', 500.00, 'Pagamento bolletta luce', '2024-02-15'),
   (1, 2, 'deposit', 2300.00, 'Stipendio febbraio', '2024-02-12'),
   (1, 3, 'deposit', 500.00, 'Apertura conto', '2024-03-01'),
   (2, 4, 'deposit', 1200.00, 'Versamento iniziale', '2024-03-05'),

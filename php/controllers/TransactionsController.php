@@ -2,7 +2,7 @@
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 
-class TransactionsController extends Helper
+class TransactionsController extends BaseController
 {
 	//fortux
 	public function getTransaction(Request $request, Response $response, $args)
@@ -10,19 +10,20 @@ class TransactionsController extends Helper
 		// DB connection
 		$mysqli = $this->getDbConnection();
 
-		// qui "id" è l'id dell'account di cui vogliamo tutte le transazioni
+		// Get account ID
 		$accountId = isset($args['id']) ? (int)$args['id'] : 0;
 		if ($accountId <= 0) {
 			return $this->errorResponse($response, 'Invalid account id');
 		}
 
-		// DB query
+		// Fetch all transactions
 		$stmt = $mysqli->prepare('SELECT * FROM transactions WHERE account_id = ? ORDER BY created_at DESC');
 		$stmt->bind_param('i', $accountId);
 		$stmt->execute();
 		$res = $stmt->get_result();
 		$transactions = $res->fetch_all(MYSQLI_ASSOC);
 
+		// Return JSON response
 		return $this->jsonResponse($response, $transactions, 200);
 	}
 
@@ -33,15 +34,15 @@ class TransactionsController extends Helper
 		// DB connection
 		$mysqli = $this->getDbConnection();
 
+		// Validate transaction ID
 		if ($args['transaction_id'] <= 0) {
-			$mysqli->close();
 			return $this->errorResponse($response, 'Invalid transaction id');
 		}
 
+		// Fetch single transaction
 		$stmt = $mysqli->prepare('SELECT t.*, a.currency FROM transactions t LEFT JOIN accounts a ON t.account_id = a.id WHERE t.id = ?');
 		if (!$stmt) {
 			$err = $mysqli->error;
-			$mysqli->close();
 			return $this->errorResponse($response, 'Failed to prepare statement: ' . $err, 500);
 		}
 
@@ -50,9 +51,7 @@ class TransactionsController extends Helper
 		$res = $stmt->get_result();
 		$transaction = $res->fetch_assoc();
 
-		$stmt->close();
-		$mysqli->close();
-
+		// Handle not found
 		if (!$transaction) {
 			return $this->errorResponse($response, 'Transaction not found', 404);
 		}
@@ -78,131 +77,110 @@ class TransactionsController extends Helper
 		// DB connection
 		$mysqli = $this->getDbConnection();
 
-		// Get data from request
+		// Get request data
 		$data = $this->getJsonBody($request);
-		$account_id  = (int)($args['id'] ?? 0);
-		$amount      = (float)($data['amount'] ?? 0);
+		$accountId  = (int)($args['id'] ?? 0);
+		$amount     = (float)($data['amount'] ?? 0);
 		$description = $data['description'] ?? '';
 		$created_at  = date('Y-m-d');
 
-		// Check If account_id is valid
-		$stmt = $mysqli->prepare("SELECT 1 FROM accounts WHERE id = ?");
-		$stmt->bind_param("i", $id);
-		$stmt->execute();
-		$res = $stmt->get_result();
-		if ($res->num_rows == 0) {
+		// Validate input data
+		if($amount <= 0){
+			return $this->errorResponse($response, 'Invalid amount');
+		}
+
+		// Find existing account
+		$account = $this->findAccount($mysqli, $accountId);
+		if (!$account) {
 			return $this->errorResponse($response, 'Invalid account id');
 		}
 
-		// Check If ammount is negative
-		if($amount < 0){
-			return $this->errorResponse($response, 'Invalid ammount');
+		// Check sufficient balance
+		if ($type == "withdrawal" && $account['balance'] < $amount) {
+			return $this->errorResponse($response, 'Insufficient balance', 422);
 		}
 
-		// DB insert
+		// Insert new transaction
 		$stmt = $mysqli->prepare("INSERT INTO transactions (account_id, type, amount, description, created_at) VALUES (?, ?, ?, ?, ?)");
-		$stmt->bind_param("isdss", $account_id, $type, $amount, $description, $created_at);
+		$stmt->bind_param("isdss", $accountId, $type, $amount, $description, $created_at);
 		$stmt->execute();
 
-		// DB update balance
-		$amountWithSign = ($type == "withdrawal") ? -$amount : $amount;
-		$sql = "UPDATE accounts SET balance = balance + ? WHERE id = ?";
-		$stmt = $mysqli->prepare($sql);
-		if (!$stmt) {
-			$mysqli->close();
-			return $this->errorResponse($response, 'Failed to prepare update', 500);
-		}
-		$stmt->bind_param("di", $amountWithSign, $account_id);
-		$stmt->execute();
+		// Update account balance
+		$this->updateBalance($mysqli, $accountId, ($type == "withdrawal" ? -$amount : $amount));
 
-		// Confitmation response
 		return $this->jsonResponse($response, ['success' => true], 201);
 	}
 
-	//tobe implemented
+	//ALBE0X
 	public function editTransactionNumber(Request $request, Response $response, $args)
 	{
 		// DB connection
 		$mysqli = $this->getDbConnection();
+		$transactionId = (int)($args['transaction_id'] ?? 0);
+		$accountId = (int)($args['id'] ?? 0);
 
-		// Get transaction
-		$stmt = $mysqli->prepare("SELECT * FROM transactions WHERE id = ? AND account_id = ?");
-		$stmt->bind_param("ii", $args['transaction_id'], $args['id']);
-		$stmt->execute();
-		$res = $stmt->get_result();
-		$transaction = $res->fetch_assoc();
+		// Find existing transaction
+		$transaction = $this->findTransaction($mysqli, $transactionId, $accountId);
 
-		// Set new data
+		if (!$transaction) {
+			return $this->errorResponse($response, 'Transaction not found', 404);
+		}
+
+		// Get updated description
 		$data = $this->getJsonBody($request);
-		$amount      = (float)	($data['amount'] 	?? $transaction['amount']);
-		$description = $data['description'] 		?? $transaction['description'];
-		$created_at  = date('Y-m-d') 				?? $transaction['created_at'];
+		$description = $data['description'] ?? $transaction['description'];
 
-		// DB update
-		$stmt = $mysqli->prepare("UPDATE transactions SET type = ?, amount = ?, description = ?, created_at = ? WHERE id = ? AND account_id = ?");
-		$stmt->bind_param("sdssii", $type, $amount, $description, $created_at, $args['transaction_id'], $args['id']);
+		// Update transaction record
+		$stmt = $mysqli->prepare("UPDATE transactions SET description = ? WHERE id = ? AND account_id = ?");
+		$stmt->bind_param("sii", $description, $transactionId, $accountId);
 		$stmt->execute();
 
-		// Update balance
-		$amountWithSign = ($type == "withdrawal") ? -$amount : $amount;
-		$stmt = $mysqli->prepare("UPDATE accounts SET balance = balance + ? WHERE id = ?");
-		$stmt->bind_param("di", $amountWithSign, $args['id']);
-		$stmt->execute();
-
-		return $this->jsonResponse($response, ['success' => true], 201);
+		return $this->jsonResponse($response, ['success' => true]);
 	}
 
+	//ALBE0X
 	public function deleteTransactionNumber(Request $request, Response $response, $args)
 	{
 		// DB connection
 		$mysqli = $this->getDbConnection();
+		$accountId = (int)($args['id'] ?? 0);
+		$transactionId = (int)($args['transaction_id'] ?? 0);
 
-		//Get the transaction to be deleted
-		$stmt = $mysqli->prepare("SELECT amount, type FROM transactions WHERE id = ? AND account_id = ?");
-		$stmt->bind_param("ii", $args['transaction_id'], $args['id']);
-		$stmt->execute();
-		$res = $stmt->get_result();
-		$transaction = $res->fetch_assoc();
+		// Find existing transaction
+		$transaction = $this->findTransaction($mysqli, $transactionId, $accountId);
 
 		if (!$transaction) {
-			$response->getBody()->write(json_encode(['error' => 'Transaction not found']));
-			return $response->withHeader('Content-Type', 'application/json')->withStatus(404);
+			return $this->errorResponse($response, 'Transaction not found', 404);
 		}
 
-		$reversalAmount = ($transaction['type'] == "withdrawal") ? $transaction['amount'] : -$transaction['amount'];
+		// Calculate reversal amount
+		$rev = ($transaction['type'] == "withdrawal") ? $transaction['amount'] : -$transaction['amount'];
 
-		// 3. Update the Account Balance
-		$stmt = $mysqli->prepare("UPDATE accounts SET balance = balance + ? WHERE id = ?");
-		$stmt->bind_param("di", $reversalAmount, $args['id']);
-		$stmt->execute();
+		// Update account balance
+		$this->updateBalance($mysqli, $accountId, $rev);
 
-		// 4. Delete the Transaction record
+		// Delete transaction record
 		$stmt = $mysqli->prepare("DELETE FROM transactions WHERE id = ? AND account_id = ?");
-		$stmt->bind_param("ii", $args['transaction_id'], $args['id']);
+		$stmt->bind_param("ii", $transactionId, $accountId);
 		$stmt->execute();
 
-		// Return Success
-		return $this->jsonResponse($response, ['success' => true], 201);
+		return $this->jsonResponse($response, ['success' => true]);
 	}
+
 	//fortux
 	public function getBalance(Request $request, Response $response, $args)
 	{
+		// DB connection
 		$mysqli = $this->getDbConnection();
-
 		$accountId = (int)($args['id'] ?? 0);
+
+		// Validate account ID
 		if ($accountId <= 0) {
-			$mysqli->close();
 			return $this->errorResponse($response, 'Invalid account id');
 		}
 
-		$stmt = $mysqli->prepare('SELECT id, currency, balance FROM accounts WHERE id = ?');
-
-		$stmt->bind_param('i', $accountId);
-		$stmt->execute();
-		$res = $stmt->get_result();
-		$account = $res->fetch_assoc();
-		$stmt->close();
-		$mysqli->close();
+		// Fetch account data
+		$account = $this->findAccount($mysqli, $accountId);
 
 		if (!$account) {
 			return $this->errorResponse($response, 'Account not found', 404);

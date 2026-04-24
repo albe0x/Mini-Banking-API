@@ -5,12 +5,11 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 class ConversionController extends BaseController
 {
 
-    // 1. CONVERSIONE FIAT 
-
+    //FRED
     public function convertFiat(Request $request, Response $response, array $args): Response
     {
         $mysqli = $this->getDbConnection();
-        $accountId = (int)$args['id'];
+        $accountId = (int)($args['id'] ?? 0);
         $params = $request->getQueryParams();
         $to = strtoupper($params['to'] ?? '');
 
@@ -19,11 +18,8 @@ class ConversionController extends BaseController
             return $this->jsonResponse($response, ['error' => 'valuta target mancante'], 400);
         }
 
-        // Recupero l'account
-        $stmt = $mysqli->prepare('SELECT id, currency FROM accounts WHERE id = ?');
-        $stmt->bind_param('i', $accountId);
-        $stmt->execute();
-        $account = $stmt->get_result()->fetch_assoc();
+        // Recupero l'account e il saldo
+        $account = $this->findAccount($mysqli, $accountId);
 
         // 404 - Conto non trovato
         if (!$account) {
@@ -31,18 +27,7 @@ class ConversionController extends BaseController
         }
 
         $from = strtoupper($account['currency']);
-
-        // Calcolo Saldo
-        $stmt = $mysqli->prepare("
-            SELECT
-                COALESCE(SUM(CASE WHEN type = 'deposit' THEN amount ELSE 0 END), 0) -
-                COALESCE(SUM(CASE WHEN type = 'withdrawal' THEN amount ELSE 0 END), 0) AS balance
-            FROM transactions
-            WHERE account_id = ?
-        ");
-        $stmt->bind_param('i', $accountId);
-        $stmt->execute();
-        $balance = (float)($stmt->get_result()->fetch_assoc()['balance'] ?? 0);
+        $balance = (float)$account['balance'];
 
         // Chiamata API Frankfurter
         $url = "https://api.frankfurter.dev/v1/latest?base={$from}&symbols={$to}";
@@ -71,16 +56,16 @@ class ConversionController extends BaseController
             'to_currency' => $to,
             'original_balance' => $balance,
             'converted_balance' => $converted,
-            'rate' => $rate
+            'rate' => $rate,
+            'date' => $data['date'] ?? null
         ]);
     }
 
-    // 2. CONVERSIONE CRYPTO (Binance API)
-
+    //FRED
     public function convertCrypto(Request $request, Response $response, array $args): Response
     {
         $mysqli = $this->getDbConnection();
-        $accountId = (int)$args['id'];
+        $accountId = (int)($args['id'] ?? 0);
         $params = $request->getQueryParams();
         $to = strtoupper($params['to'] ?? '');
 
@@ -88,24 +73,23 @@ class ConversionController extends BaseController
             return $this->jsonResponse($response, ['error' => 'valuta target mancante'], 400);
         }
 
-        $stmt = $mysqli->prepare('SELECT id, currency FROM accounts WHERE id = ?');
-        $stmt->bind_param('i', $accountId);
-        $stmt->execute();
-        $account = $stmt->get_result()->fetch_assoc();
+        // Recupero l'account e il saldo
+        $account = $this->findAccount($mysqli, $accountId);
 
         if (!$account) {
             return $this->jsonResponse($response, ['error' => 'conto non trovato'], 404);
         }
 
         $from = strtoupper($account['currency']);
+        $balance = (float)$account['balance'];
         
-        // Es: EURUSDT (Base + Target per Binance)
-        $symbol = $from . $to; 
+        // Es: BTC + EUR (Crypto Base + Currency Quote per Binance)
+        $symbol = $to . $from; 
 
         // Chiamata API Binance
         $url = "https://api.binance.com/api/v3/ticker/price?symbol={$symbol}";
         
-        // Sopprimo il warning di file_get_contents per catturare l'errore HTTP (es. 400 da binance se la coppia non esiste)
+        // Sopprimo il warning di file_get_contents per catturare l'errore HTTP
         $context = stream_context_create(['http' => ['ignore_errors' => true]]);
         $json = @file_get_contents($url, false, $context);
 
@@ -121,12 +105,19 @@ class ConversionController extends BaseController
             return $this->jsonResponse($response, ['error' => 'coppia Binance non valida o crypto target non supportata'], 400);
         }
 
-        // Il resto della logica del saldo...
         $rate = (float)$data['price'];
+        $converted = round($balance / $rate, 8); // Quantità crypto = saldo / prezzo
+
         return $this->jsonResponse($response, [
+            'account_id' => $accountId,
             'provider' => 'Binance',
-            'symbol' => $symbol,
-            'rate' => $rate
+            'conversion_type' => 'crypto',
+            'from_currency' => $from,
+            'to_crypto' => $to,
+            'market_symbol' => $symbol,
+            'original_balance' => $balance,
+            'price' => $rate,
+            'converted_amount' => $converted
         ]);
     }
 }
