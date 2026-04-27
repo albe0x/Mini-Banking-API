@@ -83,14 +83,16 @@ class ConversionController extends BaseController
         $from = strtoupper($account['currency']);
         $balance = (float)$account['balance'];
         
-        // Es: BTC + EUR (Crypto Base + Currency Quote per Binance)
+        // Creazione simbolo di mercato Binance (es. BTCEUR)
         $symbol = $to . $from; 
 
         // Chiamata API Binance
         $url = "https://api.binance.com/api/v3/ticker/price?symbol={$symbol}";
         
-        // Sopprimo il warning di file_get_contents per catturare l'errore HTTP
+        // Ignore errors to handle them manually
         $context = stream_context_create(['http' => ['ignore_errors' => true]]);
+
+        // Fetch data from Binance
         $json = @file_get_contents($url, false, $context);
 
         // 502 - Errore connettività Binance
@@ -105,8 +107,9 @@ class ConversionController extends BaseController
             return $this->jsonResponse($response, ['error' => 'coppia Binance non valida o crypto target non supportata'], 400);
         }
 
+        // Calcolo conversione con 8 decimali per le crypto
         $rate = (float)$data['price'];
-        $converted = round($balance / $rate, 8); // Quantità crypto = saldo / prezzo
+        $converted = round($balance / $rate, 8);
 
         return $this->jsonResponse($response, [
             'account_id' => $accountId,
