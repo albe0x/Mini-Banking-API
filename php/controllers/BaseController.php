@@ -28,8 +28,16 @@ class BaseController
     //Metodo per aggiornare saldo
     protected function updateBalance($mysqli, $accountId, $amount)
     {
-        $stmt = $mysqli->prepare("UPDATE accounts SET balance = balance + ? WHERE id = ?");
-        $stmt->bind_param("di", $amount, $accountId);
+        $account = $this->findAccount($mysqli, $accountId);
+        $balance = $account['balance'];
+        $newBalance = $balance + $amount;
+
+        if($newBalance < 0) {
+            return false; 
+        }
+        
+        $stmt = $mysqli->prepare("UPDATE accounts SET balance =  ? WHERE id = ?");
+        $stmt->bind_param("di", $newBalance, $accountId);
         return $stmt->execute();
     }
 

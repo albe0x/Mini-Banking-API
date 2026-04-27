@@ -95,8 +95,9 @@ class TransactionsController extends BaseController
 			return $this->errorResponse($response, 'Invalid account id');
 		}
 
-		// Check sufficient balance
-		if ($type == "withdrawal" && $account['balance'] < $amount) {
+		// Update account balance
+		$success = $this->updateBalance($mysqli, $accountId, ($type == "withdrawal" ? -$amount : $amount));
+		if(!$success) {
 			return $this->errorResponse($response, 'Insufficient balance', 422);
 		}
 
@@ -105,8 +106,6 @@ class TransactionsController extends BaseController
 		$stmt->bind_param("isdss", $accountId, $type, $amount, $description, $created_at);
 		$stmt->execute();
 
-		// Update account balance
-		$this->updateBalance($mysqli, $accountId, ($type == "withdrawal" ? -$amount : $amount));
 
 		return $this->jsonResponse($response, ['success' => true], 201);
 	}
@@ -157,7 +156,10 @@ class TransactionsController extends BaseController
 		$rev = ($transaction['type'] == "withdrawal") ? $transaction['amount'] : -$transaction['amount'];
 
 		// Update account balance
-		$this->updateBalance($mysqli, $accountId, $rev);
+		$success = $this->updateBalance($mysqli, $accountId, $rev);
+		if(!$success) {
+			return $this->errorResponse($response, 'Failed to delete transaction because of insufficient balance', 422);
+		}
 
 		// Delete transaction record
 		$stmt = $mysqli->prepare("DELETE FROM transactions WHERE id = ? AND account_id = ?");
