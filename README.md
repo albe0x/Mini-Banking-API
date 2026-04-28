@@ -2,29 +2,31 @@
 
 Alberto Bugli, Federico Torna Tommaso Fortuna.
 
+## API endpoints
+
+-get /accounts/{id}/transactions
+-get /accounts/{id}/transactions/{transaction_id}
+-get /accounts/{id}/balance
 
 
-get /accounts/{id}/transactions
-get /accounts/{id}/transactions/{transaction_id}
-get /accounts/{id}/balance
-
-
-post /accounts/{id}/deposits
-post /accounts/{id}/withdrawals
-put  /accounts/{id}/transactions/{transaction_id}
-delete /accounts/{id}/transactions/{transaction_id}
-
-oppure si può eliminare un movimento solo se il saldo finale rimane valido
-
-get /accounts/{id}/balance/convert/fiat?to={currency}
-get /accounts/{id}/balance/convert/crypto?to={currency}
-
-
+- post /accounts/{id}/deposits
+- post /accounts/{id}/withdrawals
 Json format per le post:
-{
+`{
   "amount": 0.00,
   "description": "descrizione"
-}
+}`
+
+- put  /accounts/{id}/transactions/{transaction_id}
+
+- delete /accounts/{id}/transactions/{transaction_id}
+*si può eliminare un movimento solo se il saldo finale rimane valido*
+
+-get /accounts/{id}/balance/convert/fiat?to={currency}
+-get /accounts/{id}/balance/convert/crypto?to={currency}
+
+
+
 
 ## Su Linux
 `MY_UID=$(id -u) MY_GID=$(id -g) docker-compose up`
