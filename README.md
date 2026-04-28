@@ -1,6 +1,8 @@
 ## Mini Banking API
 
-Alberto Bugli, Federico Torna Tommaso Fortuna.
+- Alberto Bugli
+- Federico Torna 
+- Tommaso Fortuna
 
 ## API endpoints
 
@@ -11,8 +13,7 @@ Alberto Bugli, Federico Torna Tommaso Fortuna.
 
 - post /accounts/{id}/deposits
 - post /accounts/{id}/withdrawals
-<br>
-Json format per le post:
++ Json format per le post:
 `{
   "amount": 0.00,
   "description": "descrizione"
@@ -21,8 +22,7 @@ Json format per le post:
 - put  /accounts/{id}/transactions/{transaction_id}
 
 - delete /accounts/{id}/transactions/{transaction_id}
-<br>
-*si può eliminare un movimento solo se il saldo finale rimane valido*
++ *si può eliminare un movimento solo se il saldo finale rimane valido*
 
 - get /accounts/{id}/balance/convert/fiat?to={currency}
 - get /accounts/{id}/balance/convert/crypto?to={currency}
