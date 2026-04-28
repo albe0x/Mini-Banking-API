@@ -1,6 +1,6 @@
 ## Mini Banking API
 
-# Alberto Bugli, Federico Torna Tommaso Fortuna.
+Alberto Bugli, Federico Torna Tommaso Fortuna.
 
 
 
