@@ -17,12 +17,12 @@ curl -X POST "http://localhost:8080/accounts/1/withdrawals" \
   -H "Content-Type: application/json" \
   -d '{"amount": 50.00, "description": "Test withdrawal"}'
 
-# Edit a transaction (placeholder)
+# Edit a transaction
 curl -X PUT "http://localhost:8080/accounts/1/transactions/1" \
   -H "Content-Type: application/json" \
-  -d '{"amount": 200.00, "description": "Updated transaction"}'
+  -d '{"description": "Updated transaction"}'
 
-# Delete a transaction (placeholder)
+# Delete a transaction
 curl -X DELETE "http://localhost:8080/accounts/1/transactions/1"
 
 

@@ -58,7 +58,7 @@ class BaseController
     }
 
     //Risposta in formato JSON
-    protected function jsonResponse(Response $response, array $data, int $status = 200): Response
+    protected function jsonResponse(Response $response, array $data = ['success' => true], int $status = 200): Response
     {
         $response->getBody()->write(json_encode($data));
         return $response->withHeader('Content-Type', 'application/json')->withStatus($status);

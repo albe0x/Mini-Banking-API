@@ -129,6 +129,11 @@ class TransactionsController extends BaseController
 		$data = $this->getJsonBody($request);
 		$description = $data['description'] ?? $transaction['description'];
 
+		// Check if the ammount is changed
+		if (isset($data['amount']) && $data['amount'] != $transaction['amount']){
+			return $this->errorResponse($response, 'Cannot change transaction amount. Try to delete it', 422);
+		}
+
 		// Update transaction record
 		$stmt = $mysqli->prepare("UPDATE transactions SET description = ? WHERE id = ? AND account_id = ?");
 		$stmt->bind_param("sii", $description, $transactionId, $accountId);
