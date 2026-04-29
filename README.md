@@ -1,6 +1,6 @@
 ## Mini Banking API
 
-http://banking.albe0x.com/
+https://banking.albe0x.com/
 
 ## Creato da
 
