@@ -12,7 +12,7 @@ require_once __DIR__ . '/controllers/ConversionController.php';
 $app = AppFactory::create();
 
 $app->get('/', function (Request $request, Response $response, array $args) {
-    $response->getBody()->write("Test page");
+    $response->getBody()->write("Mini-Banking-API");
     return $response;
 });
 
