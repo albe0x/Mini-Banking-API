@@ -8,6 +8,7 @@ require __DIR__ . '/vendor/autoload.php';
 require_once __DIR__ . '/controllers/BaseController.php';
 require_once __DIR__ . '/controllers/TransactionsController.php';
 require_once __DIR__ . '/controllers/ConversionController.php';
+require_once __DIR__ . '/middleware/AuthMiddleware.php';
 
 $app = AppFactory::create();
 
@@ -32,5 +33,6 @@ $app->delete('/accounts/{id}/transactions/{transaction_id}',"TransactionsControl
 $app->get('/accounts/{id}/balance/convert/fiat',            "ConversionController:convertFiat");
 $app->get('/accounts/{id}/balance/convert/crypto',          "ConversionController:convertCrypto");
 
+$app->add(new AuthMiddleware());
 
 $app->run();
