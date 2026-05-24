@@ -1,7 +1,5 @@
 ## Mini Banking API
 
-https://banking.albe0x.com/
-
 ## Creato da
 
 - Alberto Bugli
